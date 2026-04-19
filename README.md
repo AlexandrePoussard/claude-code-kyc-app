@@ -2,6 +2,8 @@
 
 A deliberately-simple Know-Your-Customer console used as a playground for Claude Code trainings. This is not a production app: no external APIs, no database, no auth.
 
+![alt text](image.png)
+
 ## Stack
 
 - **Frontend:** Vue 3 + Vite + TypeScript + Pinia + Vue Router + Chart.js (port **3000**)
