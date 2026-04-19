@@ -1,0 +1,83 @@
+import type {
+  ApplicantInput,
+  Application,
+  AuditEntry,
+  Document as KycDocument,
+  LivenessResult,
+  RiskLevel,
+  SanctionsResult,
+  Stats,
+  Status,
+} from "./types";
+
+interface DocumentUploadResponse {
+  document: KycDocument;
+  ocr_extracted: Record<string, string>;
+}
+
+const BASE = "/api";
+
+async function handle<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${res.statusText}: ${text}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+export const api = {
+  listApplications(params: { status?: Status; risk?: RiskLevel; q?: string } = {}): Promise<Application[]> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set("status", params.status);
+    if (params.risk) qs.set("risk", params.risk);
+    if (params.q) qs.set("q", params.q);
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return fetch(`${BASE}/applications${suffix}`).then(handle<Application[]>);
+  },
+
+  getApplication(id: string): Promise<Application> {
+    return fetch(`${BASE}/applications/${id}`).then(handle<Application>);
+  },
+
+  createApplication(applicant: ApplicantInput): Promise<Application> {
+    return fetch(`${BASE}/applications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(applicant),
+    }).then(handle<Application>);
+  },
+
+  uploadDocument(id: string, file: File, docType: string): Promise<DocumentUploadResponse> {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("doc_type", docType);
+    return fetch(`${BASE}/applications/${id}/documents`, { method: "POST", body: fd }).then(handle<DocumentUploadResponse>);
+  },
+
+  runLiveness(id: string, file?: File): Promise<LivenessResult> {
+    const fd = new FormData();
+    if (file) fd.append("file", file);
+    return fetch(`${BASE}/applications/${id}/liveness`, { method: "POST", body: fd }).then(handle<LivenessResult>);
+  },
+
+  rerunSanctions(id: string): Promise<SanctionsResult> {
+    return fetch(`${BASE}/applications/${id}/sanctions`, { method: "POST" }).then(handle<SanctionsResult>);
+  },
+
+  decide(id: string, payload: { outcome: "approved" | "rejected"; reviewer: string; note: string }): Promise<Application> {
+    return fetch(`${BASE}/applications/${id}/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(handle<Application>);
+  },
+
+  listAudit(applicationId?: string): Promise<AuditEntry[]> {
+    const qs = applicationId ? `?application_id=${applicationId}` : "";
+    return fetch(`${BASE}/audit${qs}`).then(handle<AuditEntry[]>);
+  },
+
+  getStats(): Promise<Stats> {
+    return fetch(`${BASE}/stats`).then(handle<Stats>);
+  },
+};
