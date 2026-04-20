@@ -1,5 +1,5 @@
 """Service layer — orchestrates domain logic and storage for HTTP handlers."""
 
-from . import applications, stats
+from . import applications, onboarding, stats
 
-__all__ = ["applications", "stats"]
+__all__ = ["applications", "onboarding", "stats"]

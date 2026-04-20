@@ -1,6 +1,13 @@
 export type Status = "pending" | "in_review" | "approved" | "rejected";
 export type RiskLevel = "low" | "medium" | "high";
 export type IdDocumentType = "passport" | "national_id" | "driver_license";
+export type OnboardingStage =
+  | "kyc"
+  | "account_creation"
+  | "rm_assignment"
+  | "completed";
+export type AccountType = "checking" | "savings" | "investment";
+export type RMSpecialization = "retail" | "wealth" | "investment" | "compliance";
 
 export interface Address {
   line1: string;
@@ -70,10 +77,38 @@ export interface Decision {
   decided_at: string;
 }
 
+export interface BankAccount {
+  account_number: string;
+  type: AccountType;
+  currency: string;
+  opened_at: string;
+  initial_deposit: number;
+}
+
+export interface RelationshipManager {
+  id: string;
+  name: string;
+  email: string;
+  specialization: RMSpecialization;
+  languages: string[];
+}
+
+export interface ManagerWithLoad {
+  manager: RelationshipManager;
+  assigned_count: number;
+}
+
+export interface AssignedRM {
+  manager: RelationshipManager;
+  assigned_at: string;
+  reason: string;
+}
+
 export interface Application {
   id: string;
   applicant: ApplicantInput;
   status: Status;
+  stage: OnboardingStage;
   created_at: string;
   updated_at: string;
   risk: RiskAssessment | null;
@@ -81,6 +116,8 @@ export interface Application {
   liveness: LivenessResult | null;
   documents: Document[];
   decision: Decision | null;
+  account: BankAccount | null;
+  relationship_manager: AssignedRM | null;
 }
 
 export interface AuditEntry {
@@ -139,9 +176,17 @@ export interface ReviewerStatsEntry {
   rejected: number;
 }
 
+export interface StageCounts {
+  kyc: number;
+  account_creation: number;
+  rm_assignment: number;
+  completed: number;
+}
+
 export interface Stats {
   total: number;
   status_counts: StatusCounts;
+  stage_counts: StageCounts;
   risk_counts: RiskCounts;
   sanctions_hits: number;
   submissions_last_30_days: DailyCount[];

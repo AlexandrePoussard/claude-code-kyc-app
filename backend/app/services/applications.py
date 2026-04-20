@@ -14,6 +14,7 @@ from ..models import (
     Document,
     DocumentUploadResponse,
     LivenessResult,
+    OnboardingStage,
     RiskLevel,
     SanctionsResult,
     Status,
@@ -31,6 +32,7 @@ def list_applications(
     *,
     status: Optional[Status] = None,
     risk: Optional[RiskLevel] = None,
+    stage: Optional[OnboardingStage] = None,
     q: Optional[str] = None,
 ) -> list[Application]:
     items = store.all_apps()
@@ -38,6 +40,8 @@ def list_applications(
         items = [a for a in items if a.status == status]
     if risk:
         items = [a for a in items if a.risk and a.risk.level == risk]
+    if stage:
+        items = [a for a in items if a.stage == stage]
     if q:
         needle = q.lower()
         items = [
@@ -141,6 +145,10 @@ def decide(app_id: str, payload: DecisionInput) -> Application:
     app_obj.status = (
         Status.APPROVED if payload.outcome == "approved" else Status.REJECTED
     )
+    # KYC approval unlocks the next onboarding stage. Rejection keeps the
+    # application at stage KYC (terminal).
+    if app_obj.status == Status.APPROVED:
+        app_obj.stage = OnboardingStage.ACCOUNT_CREATION
     app_obj.updated_at = utcnow()
     audit.record(
         payload.reviewer,

@@ -12,6 +12,7 @@ from ..models import (
     FunnelSteps,
     ReviewerStats,
     RiskCounts,
+    StageCounts,
     StatsResponse,
     Status,
     StatusCounts,
@@ -30,8 +31,9 @@ def compute() -> StatsResponse:
     apps = store.all_apps()
     total = len(apps)
 
-    # --- status & risk counts ---
+    # --- status, stage & risk counts ---
     status_counter: Counter[str] = Counter(a.status.value for a in apps)
+    stage_counter: Counter[str] = Counter(a.stage.value for a in apps)
     risk_counter: Counter[str] = Counter(a.risk.level.value for a in apps if a.risk)
 
     status_counts = StatusCounts(
@@ -39,6 +41,12 @@ def compute() -> StatsResponse:
         in_review=status_counter.get("in_review", 0),
         approved=status_counter.get("approved", 0),
         rejected=status_counter.get("rejected", 0),
+    )
+    stage_counts = StageCounts(
+        kyc=stage_counter.get("kyc", 0),
+        account_creation=stage_counter.get("account_creation", 0),
+        rm_assignment=stage_counter.get("rm_assignment", 0),
+        completed=stage_counter.get("completed", 0),
     )
     risk_counts = RiskCounts(
         low=risk_counter.get("low", 0),
@@ -122,6 +130,7 @@ def compute() -> StatsResponse:
     return StatsResponse(
         total=total,
         status_counts=status_counts,
+        stage_counts=stage_counts,
         risk_counts=risk_counts,
         sanctions_hits=sanctions_hits,
         submissions_last_30_days=submissions,

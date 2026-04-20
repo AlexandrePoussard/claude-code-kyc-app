@@ -1,9 +1,12 @@
 import type {
+  AccountType,
   ApplicantInput,
   Application,
   AuditEntry,
   Document as KycDocument,
   LivenessResult,
+  ManagerWithLoad,
+  OnboardingStage,
   RiskLevel,
   SanctionsResult,
   Stats,
@@ -26,10 +29,13 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export const api = {
-  listApplications(params: { status?: Status; risk?: RiskLevel; q?: string } = {}): Promise<Application[]> {
+  listApplications(
+    params: { status?: Status; risk?: RiskLevel; stage?: OnboardingStage; q?: string } = {},
+  ): Promise<Application[]> {
     const qs = new URLSearchParams();
     if (params.status) qs.set("status", params.status);
     if (params.risk) qs.set("risk", params.risk);
+    if (params.stage) qs.set("stage", params.stage);
     if (params.q) qs.set("q", params.q);
     const suffix = qs.toString() ? `?${qs}` : "";
     return fetch(`${BASE}/applications${suffix}`).then(handle<Application[]>);
@@ -80,4 +86,38 @@ export const api = {
   getStats(): Promise<Stats> {
     return fetch(`${BASE}/stats`).then(handle<Stats>);
   },
+
+  createAccount(id: string, payload: { type: AccountType; currency: string; initial_deposit: number }): Promise<Application> {
+    return fetch(`${BASE}/applications/${id}/account`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(handle<Application>);
+  },
+
+  assignRelationshipManager(id: string, managerId?: string): Promise<Application> {
+    return fetch(`${BASE}/applications/${id}/relationship-manager`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manager_id: managerId ?? null }),
+    }).then(handle<Application>);
+  },
+
+  listRelationshipManagers(): Promise<ManagerWithLoad[]> {
+    return fetch(`${BASE}/relationship-managers`).then(handle<ManagerWithLoad[]>);
+  },
+};
+
+export const stageOrder: OnboardingStage[] = [
+  "kyc",
+  "account_creation",
+  "rm_assignment",
+  "completed",
+];
+
+export const stageLabels: Record<OnboardingStage, string> = {
+  kyc: "KYC verification",
+  account_creation: "Account creation",
+  rm_assignment: "Relationship manager",
+  completed: "Completed",
 };

@@ -2,11 +2,12 @@
 
 from fastapi import APIRouter
 
-from . import applications, audit, health, stats
+from . import applications, audit, health, onboarding, stats
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
 api_router.include_router(applications.router)
+api_router.include_router(onboarding.router)
 api_router.include_router(audit.router)
 api_router.include_router(stats.router)
 

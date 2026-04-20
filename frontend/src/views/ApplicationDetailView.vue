@@ -2,12 +2,15 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "../api";
-import type { Application, AuditEntry } from "../types";
+import type { AccountType, Application, AuditEntry } from "../types";
 import StatusBadge from "../components/StatusBadge.vue";
+import StageStepper from "../components/StageStepper.vue";
 import RiskPanel from "../components/RiskPanel.vue";
 import SanctionsPanel from "../components/SanctionsPanel.vue";
 import LivenessPanel from "../components/LivenessPanel.vue";
 import DocumentsPanel from "../components/DocumentsPanel.vue";
+import AccountPanel from "../components/AccountPanel.vue";
+import RelationshipManagerPanel from "../components/RelationshipManagerPanel.vue";
 
 const props = defineProps<{ id: string }>();
 const router = useRouter();
@@ -20,6 +23,8 @@ const sanctionsBusy = ref(false);
 const livenessBusy = ref(false);
 const uploadBusy = ref(false);
 const decisionBusy = ref(false);
+const accountBusy = ref(false);
+const rmBusy = ref(false);
 
 const reviewer = ref("reviewer@kyc.io");
 const note = ref("");
@@ -88,22 +93,50 @@ async function decide(outcome: "approved" | "rejected") {
   }
 }
 
+async function createAccount(payload: { type: AccountType; currency: string; initial_deposit: number }) {
+  if (!application.value) return;
+  accountBusy.value = true;
+  error.value = "";
+  try {
+    await api.createAccount(application.value.id, payload);
+    await load();
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    accountBusy.value = false;
+  }
+}
+
+async function assignRM(managerId: string | undefined) {
+  if (!application.value) return;
+  rmBusy.value = true;
+  error.value = "";
+  try {
+    await api.assignRelationshipManager(application.value.id, managerId);
+    await load();
+  } catch (e) {
+    error.value = (e as Error).message;
+  } finally {
+    rmBusy.value = false;
+  }
+}
+
 onMounted(load);
 </script>
 
 <template>
   <div v-if="loading" class="muted">Loading…</div>
-  <div v-else-if="error" class="panel" style="color: var(--danger)">{{ error }}</div>
+  <div v-else-if="error && !application" class="panel" style="color: var(--danger)">{{ error }}</div>
   <div v-else-if="application" class="stack">
     <div class="row between">
-      <div>
-        <button @click="router.push('/dashboard')">&larr; Back to queue</button>
-      </div>
+      <button @click="router.push('/dashboard')">&larr; Back to queue</button>
       <div class="row" style="gap: 10px">
         <span class="muted">Ref {{ application.id.slice(0, 8) }}…</span>
         <StatusBadge :value="application.status" />
       </div>
     </div>
+
+    <StageStepper :stage="application.stage" :status="application.status" />
 
     <div class="panel">
       <div class="row between">
@@ -128,6 +161,7 @@ onMounted(load);
       </div>
     </div>
 
+    <h3 class="section-title">Stage 1 · KYC verification</h3>
     <div class="grid cols-2">
       <RiskPanel :risk="application.risk" />
       <SanctionsPanel :sanctions="application.sanctions" :busy="sanctionsBusy" @rerun="rerunSanctions" />
@@ -141,7 +175,7 @@ onMounted(load);
     </div>
 
     <section class="panel">
-      <h3 style="margin: 0 0 12px">Decision</h3>
+      <h3>Decision</h3>
       <div v-if="application.decision" class="decided">
         <span class="badge" :class="application.status">{{ application.decision.outcome }}</span>
         <span class="muted">by {{ application.decision.reviewer }} on {{ new Date(application.decision.decided_at).toLocaleString() }}</span>
@@ -165,8 +199,26 @@ onMounted(load);
       </div>
     </section>
 
+    <h3 class="section-title">Stage 2 · Account creation</h3>
+    <AccountPanel
+      :account="application.account"
+      :stage="application.stage"
+      :busy="accountBusy"
+      @create="createAccount"
+    />
+
+    <h3 class="section-title">Stage 3 · Relationship manager</h3>
+    <RelationshipManagerPanel
+      :assigned="application.relationship_manager"
+      :stage="application.stage"
+      :busy="rmBusy"
+      @assign="assignRM"
+    />
+
+    <p v-if="error" class="error-banner">{{ error }}</p>
+
     <section class="panel">
-      <h3 style="margin: 0 0 12px">Audit trail</h3>
+      <h3>Audit trail</h3>
       <table>
         <thead>
           <tr>
@@ -192,6 +244,22 @@ onMounted(load);
 
 <style scoped>
 h2 { font-size: 22px; }
+h3 { margin: 0 0 12px; font-size: 16px; }
+.section-title {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
 .decided p { font-size: 14px; }
 code { background: #fafbfd; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+.error-banner {
+  padding: 10px 14px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: 6px;
+  font-size: 14px;
+}
 </style>

@@ -9,7 +9,12 @@ from fastapi.responses import JSONResponse
 
 from . import mock_data
 from .api import api_router
-from .errors import ApplicationAlreadyDecided, ApplicationNotFound
+from .errors import (
+    ApplicationAlreadyDecided,
+    ApplicationNotFound,
+    RelationshipManagerNotFound,
+    StageNotReachable,
+)
 
 
 @asynccontextmanager
@@ -40,6 +45,18 @@ def create_app() -> FastAPI:
         _request: Request, exc: ApplicationAlreadyDecided
     ) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @fast_app.exception_handler(StageNotReachable)
+    async def _stage_not_reachable(
+        _request: Request, exc: StageNotReachable
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @fast_app.exception_handler(RelationshipManagerNotFound)
+    async def _rm_not_found(
+        _request: Request, exc: RelationshipManagerNotFound
+    ) -> JSONResponse:
+        return JSONResponse(status_code=404, content={"detail": str(exc)})
 
     return fast_app
 

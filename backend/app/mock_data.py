@@ -3,15 +3,19 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from . import audit, store
-from .domain import assess, run_check, screen
+from .domain import assess, relationship_managers, run_check, screen
 from .utils import utcnow
 from .models import (
+    AccountType,
     Address,
     ApplicantInput,
     Application,
+    AssignedRM,
+    BankAccount,
     Decision,
     Document,
     IdDocumentType,
+    OnboardingStage,
     Status,
 )
 
@@ -51,7 +55,16 @@ def _build(
     days_ago: int = 0,
     decision: Decision | None = None,
     with_docs: bool = True,
+    onboarding_progress: int = 0,
 ) -> Application:
+    """Build and seed a mock application.
+
+    ``onboarding_progress`` drives how far the applicant has moved past KYC:
+        0 = stays in KYC (default; only valid for non-approved statuses)
+        1 = KYC approved, account not yet created (stage = ACCOUNT_CREATION)
+        2 = account created, RM not yet assigned (stage = RM_ASSIGNMENT)
+        3 = RM assigned (stage = COMPLETED)
+    """
     applicant = ApplicantInput(
         first_name=first,
         last_name=last,
@@ -66,9 +79,34 @@ def _build(
         politically_exposed=pep,
     )
     created = utcnow() - timedelta(days=days_ago)
+
+    # Work out stage / account / RM based on onboarding_progress.
+    stage = OnboardingStage.KYC
+    account: BankAccount | None = None
+    assigned_rm: AssignedRM | None = None
+    if status == Status.APPROVED and onboarding_progress >= 1:
+        stage = OnboardingStage.ACCOUNT_CREATION
+    if status == Status.APPROVED and onboarding_progress >= 2:
+        stage = OnboardingStage.RM_ASSIGNMENT
+        acct_type = [AccountType.CHECKING, AccountType.SAVINGS, AccountType.INVESTMENT][
+            idx % 3
+        ]
+        account = BankAccount(
+            account_number=f"ACCT-{str(idx).zfill(10)}",
+            type=acct_type,
+            currency={"FR": "EUR", "DE": "EUR", "ES": "EUR", "IT": "EUR", "US": "USD", "GB": "GBP", "JP": "JPY"}.get(
+                country, "EUR"
+            ),
+            opened_at=created + timedelta(days=1),
+            initial_deposit=float(1000 + (idx * 173) % 15000),
+        )
+    if status == Status.APPROVED and onboarding_progress >= 3:
+        stage = OnboardingStage.COMPLETED
+
     app = Application(
         applicant=applicant,
         status=status,
+        stage=stage,
         created_at=created,
         updated_at=created,
         risk=assess(applicant),
@@ -89,15 +127,41 @@ def _build(
         if with_docs
         else [],
         decision=decision,
+        account=account,
     )
+
+    # RM assignment (after Application exists so the matcher can see account + risk).
+    if status == Status.APPROVED and onboarding_progress >= 3 and account is not None:
+        manager, reason = relationship_managers.match(app)
+        assigned_rm = AssignedRM(
+            manager=manager, assigned_at=created + timedelta(days=2), reason=reason
+        )
+        app.relationship_manager = assigned_rm
+
     store.put(app)
-    audit.record("system", "application.seeded", app.id, status=status.value)
+    audit.record("system", "application.seeded", app.id, status=status.value, stage=stage.value)
     if decision:
         audit.record(
             decision.reviewer,
             f"application.{decision.outcome}",
             app.id,
             note=decision.note,
+        )
+    if account:
+        audit.record(
+            "system",
+            "account.created",
+            app.id,
+            account_number=account.account_number,
+            type=account.type.value,
+        )
+    if assigned_rm:
+        audit.record(
+            "system",
+            "relationship_manager.assigned",
+            app.id,
+            manager_id=assigned_rm.manager.id,
+            manager_name=assigned_rm.manager.name,
         )
     return app
 
@@ -110,6 +174,7 @@ _ANCHORS: list[dict] = [
         id_type=IdDocumentType.PASSPORT, id_number="FRA-884421",
         status=Status.APPROVED, days_ago=12,
         decision=Decision(outcome="approved", reviewer="reviewer@kyc.io", note="Clean profile, docs match."),
+        onboarding_progress=3,  # fully onboarded: account + RM assigned
     ),
     dict(
         first="Bruno", last="Silva", email="bruno.silva@example.com",
@@ -135,6 +200,7 @@ _ANCHORS: list[dict] = [
         id_type=IdDocumentType.DRIVER_LICENSE, id_number="US-TX-9981122",
         status=Status.APPROVED, days_ago=20,
         decision=Decision(outcome="approved", reviewer="reviewer@kyc.io", note="Standard low-risk file."),
+        onboarding_progress=2,  # account opened, RM pending
     ),
     dict(
         first="Farah", last="Nasser", email="farah.nasser@example.com",
@@ -167,6 +233,7 @@ _ANCHORS: list[dict] = [
         id_type=IdDocumentType.PASSPORT, id_number="JPN-990021",
         status=Status.APPROVED, days_ago=30,
         decision=Decision(outcome="approved", reviewer="reviewer@kyc.io", note="Auto-approved after clean screening."),
+        onboarding_progress=1,  # just approved, account not yet created
     ),
     # name collision with the fake OFAC watchlist entry "Ivan Volkov" — triggers a sanctions hit
     dict(
@@ -333,12 +400,20 @@ def seed() -> None:
     for i, cfg in enumerate(_ANCHORS):
         _build(idx=i, **cfg)
 
-    # Bulk entries — deterministic but varied: rotate doc types and offsets
+    # Bulk entries — deterministic but varied: rotate doc types and offsets.
+    # For approved ones, rotate onboarding progress 1/2/3 so the dataset shows
+    # applications spread across every post-KYC stage.
     doc_types = [IdDocumentType.PASSPORT, IdDocumentType.NATIONAL_ID, IdDocumentType.DRIVER_LICENSE]
+    progress_cycle = [3, 2, 1, 3, 2]
+    approved_counter = 0
     for j, row in enumerate(_BULK):
         (first, last, nat, country, city, postal, yr, mo, dy, skey) = row
         status = _STATUS_MAP[skey]
         id_type = doc_types[j % 3]
+        progress = 0
+        if status == Status.APPROVED:
+            progress = progress_cycle[approved_counter % len(progress_cycle)]
+            approved_counter += 1
         _build(
             idx=len(_ANCHORS) + j,
             first=first,
@@ -354,6 +429,7 @@ def seed() -> None:
             status=status,
             days_ago=(j % 25),
             decision=_decision_for(status, first, last),
+            onboarding_progress=progress,
         )
 
     # Extra pool — derive DOB + status from index for a compact, reproducible dataset.
@@ -364,6 +440,10 @@ def seed() -> None:
         day = (k * 11) % 28 + 1
         status = _STATUS_MAP[_EXTRA_STATUS_CYCLE[k % len(_EXTRA_STATUS_CYCLE)]]
         id_type = doc_types[(k + 1) % 3]
+        progress = 0
+        if status == Status.APPROVED:
+            progress = progress_cycle[approved_counter % len(progress_cycle)]
+            approved_counter += 1
         _build(
             idx=base + k,
             first=first,
@@ -379,4 +459,5 @@ def seed() -> None:
             status=status,
             days_ago=(k * 3) % 60,  # spread across ~2 months for the sparkline
             decision=_decision_for(status, first, last),
+            onboarding_progress=progress,
         )

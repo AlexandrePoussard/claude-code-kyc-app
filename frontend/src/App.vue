@@ -6,14 +6,24 @@ import { RouterLink, RouterView } from "vue-router";
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <span class="logo">KYC</span>
-        <span class="title">Workshop Console</span>
+        <div class="logo" aria-hidden="true">
+          <!-- classic bank facade: columns + pediment + steps -->
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+            <path d="M12 2 1 7v2h22V7L12 2zm-8 8v8h2v-8H4zm5 0v8h2v-8H9zm4 0v8h2v-8h-2zm6 0v8h2v-8h-2zM1 20v2h22v-2H1z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="title">Meridian Private Bank</div>
+          <div class="subtitle">Client Onboarding Console</div>
+        </div>
       </div>
       <nav>
-        <RouterLink to="/dashboard">Reviewer dashboard</RouterLink>
-        <RouterLink to="/analytics">Analytics</RouterLink>
-        <RouterLink to="/onboarding">New application</RouterLink>
-        <RouterLink to="/audit">Audit log</RouterLink>
+        <RouterLink to="/">Overview</RouterLink>
+        <RouterLink to="/kyc">KYC</RouterLink>
+        <RouterLink to="/accounts">Account creation</RouterLink>
+        <RouterLink to="/rm">Relationship manager</RouterLink>
+        <RouterLink to="/onboarding">New client</RouterLink>
+        <RouterLink to="/audit">Audit</RouterLink>
       </nav>
     </header>
     <main>
@@ -36,17 +46,32 @@ import { RouterLink, RouterView } from "vue-router";
   margin-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 12px; }
 .logo {
-  background: var(--primary);
-  color: white;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  font-size: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1e3a8a, #312e81);
+  color: #ffffff;
+  box-shadow: 0 2px 8px -2px rgba(30, 58, 138, 0.4);
 }
-.title { font-size: 18px; font-weight: 600; }
+.brand-text { line-height: 1.2; }
+.brand-text .title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.brand-text .subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
 nav { display: flex; gap: 18px; }
 nav a {
   color: var(--muted);

@@ -35,6 +35,27 @@ def test_list_applications_supports_filters(client, applicant_payload):
     assert len(resp_q.json()) == 1
 
 
+def test_list_applications_supports_stage_filter(client, applicant_payload):
+    # two at stage=kyc, one at stage=account_creation (after approval)
+    a1 = client.post("/api/applications", json=applicant_payload).json()
+    client.post(
+        "/api/applications",
+        json={**applicant_payload, "email": "second@example.com"},
+    )
+    client.post(
+        f"/api/applications/{a1['id']}/decision",
+        json={"outcome": "approved", "reviewer": "reviewer@kyc.io", "note": "ok"},
+    )
+
+    kyc = client.get("/api/applications?stage=kyc").json()
+    assert len(kyc) == 1
+    assert kyc[0]["applicant"]["email"] == "second@example.com"
+
+    acct = client.get("/api/applications?stage=account_creation").json()
+    assert len(acct) == 1
+    assert acct[0]["applicant"]["email"] == applicant_payload["email"]
+
+
 def test_get_application_404(client):
     resp = client.get("/api/applications/does-not-exist")
     assert resp.status_code == 404

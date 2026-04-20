@@ -10,6 +10,7 @@ from ..models import (
     DecisionInput,
     DocumentUploadResponse,
     LivenessResult,
+    OnboardingStage,
     RiskLevel,
     SanctionsResult,
     Status,
@@ -23,9 +24,10 @@ router = APIRouter(prefix="/applications", tags=["applications"])
 def list_applications(
     status: Optional[Status] = None,
     risk: Optional[RiskLevel] = None,
+    stage: Optional[OnboardingStage] = None,
     q: Optional[str] = None,
 ) -> list[Application]:
-    return service.list_applications(status=status, risk=risk, q=q)
+    return service.list_applications(status=status, risk=risk, stage=stage, q=q)
 
 
 @router.post("", response_model=Application, status_code=201)

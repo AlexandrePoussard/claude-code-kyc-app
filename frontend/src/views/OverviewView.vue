@@ -2,6 +2,10 @@
 import { onMounted, ref } from "vue";
 import { api } from "../api";
 import type { Stats } from "../types";
+import StageFlow from "../components/StageFlow.vue";
+import StatusBreakdownBar from "../components/charts/StatusBreakdownBar.vue";
+import RiskDonut from "../components/charts/RiskDonut.vue";
+import SubmissionsSparkline from "../components/charts/SubmissionsSparkline.vue";
 import FunnelBar from "../components/charts/FunnelBar.vue";
 import TopFactorsBar from "../components/charts/TopFactorsBar.vue";
 import TopCountriesBar from "../components/charts/TopCountriesBar.vue";
@@ -24,11 +28,26 @@ onMounted(load);
 </script>
 
 <template>
-  <div v-if="loading" class="muted">Loading analytics…</div>
+  <div v-if="loading" class="muted">Loading overview…</div>
   <div v-else-if="stats" class="stack">
-    <div class="row between">
-      <h2 style="margin: 0">Analytics</h2>
-      <button @click="load">Refresh</button>
+    <section class="stack" style="gap: 6px">
+      <div class="section-kicker">Client onboarding pipeline</div>
+      <StageFlow :counts="stats.stage_counts" />
+    </section>
+
+    <div class="grid cols-3">
+      <div class="panel">
+        <h3>KYC status breakdown</h3>
+        <StatusBreakdownBar :counts="stats.status_counts" />
+      </div>
+      <div class="panel">
+        <h3>Risk distribution</h3>
+        <RiskDonut :counts="stats.risk_counts" />
+      </div>
+      <div class="panel">
+        <h3>Submissions · last 30 days</h3>
+        <SubmissionsSparkline :series="stats.submissions_last_30_days" />
+      </div>
     </div>
 
     <section class="panel">
@@ -66,6 +85,12 @@ onMounted(load);
 </template>
 
 <style scoped>
-h2 { font-size: 22px; }
-h3 { margin: 0 0 4px; font-size: 16px; }
+h3 { margin: 0 0 6px; font-size: 16px; }
+.section-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 </style>
