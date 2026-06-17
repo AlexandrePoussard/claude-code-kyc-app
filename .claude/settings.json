@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "logfire-session-capture@pydantic-claude-code-logfire-plugin": true
+  }
+}
