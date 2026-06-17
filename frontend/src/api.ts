@@ -61,9 +61,12 @@ export const api = {
   },
 
   runLiveness(id: string, file?: File): Promise<LivenessResult> {
-    const fd = new FormData();
-    if (file) fd.append("file", file);
-    return fetch(`${BASE}/applications/${id}/liveness`, { method: "POST", body: fd }).then(handle<LivenessResult>);
+    let body: FormData | undefined;
+    if (file) {
+      body = new FormData();
+      body.append("file", file);
+    }
+    return fetch(`${BASE}/applications/${id}/liveness`, { method: "POST", body }).then(handle<LivenessResult>);
   },
 
   rerunSanctions(id: string): Promise<SanctionsResult> {

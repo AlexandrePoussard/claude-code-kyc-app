@@ -138,6 +138,19 @@ onMounted(load);
 
     <StageStepper :stage="application.stage" :status="application.status" />
 
+    <div
+      v-if="application.sanctions && application.sanctions.hits.length > 0"
+      class="sanctions-banner"
+    >
+      <span class="sanctions-icon">⚠</span>
+      <div>
+        <strong>Sanctions match detected — escalate before proceeding.</strong>
+        <span class="sanctions-names">
+          Matched: {{ application.sanctions.hits.map(h => h.matched_name).join(", ") }}
+        </span>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="row between">
         <div>
@@ -243,6 +256,31 @@ onMounted(load);
 </template>
 
 <style scoped>
+.sanctions-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #fff1f1;
+  border: 1.5px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 14px;
+}
+.sanctions-icon {
+  font-size: 20px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+.sanctions-banner div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sanctions-names {
+  font-weight: normal;
+  color: #b91c1c;
+}
 h2 { font-size: 22px; }
 h3 { margin: 0 0 12px; font-size: 16px; }
 .section-title {
