@@ -138,6 +138,17 @@ onMounted(load);
 
     <StageStepper :stage="application.stage" :status="application.status" />
 
+    <div
+      v-if="application.sanctions && !application.sanctions.clear"
+      class="sanctions-warning"
+    >
+      <strong>&#9888; Sanctions match detected — escalate before proceeding.</strong>
+      <span>
+        Matched:
+        {{ application.sanctions.hits.map((h) => h.matched_name).join(", ") }}
+      </span>
+    </div>
+
     <div class="panel">
       <div class="row between">
         <div>
@@ -262,4 +273,17 @@ code { background: #fafbfd; padding: 2px 6px; border-radius: 4px; font-size: 13p
   border-radius: 6px;
   font-size: 14px;
 }
+.sanctions-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background: #fff1f1;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.sanctions-warning strong { font-size: 15px; }
 </style>
